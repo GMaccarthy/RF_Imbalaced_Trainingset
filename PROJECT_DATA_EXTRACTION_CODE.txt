@@ -1,0 +1,1129 @@
+Step 1: Load the Necessary Packages
+
+options(java.parameters = "-Xmx16g")
+
+set.seed(1234)
+
+library(data.table)
+library(dplyr)
+library(mclust)
+library(cluster)
+library(ggplot2)
+library(factoextra)
+library(NbClust)
+library(FactoMineR)
+library(readr)
+library(tidyverse)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+# Step 2: Import the Datasets and Prepare the Data
+
+Extracted_Data<- fread("/scratch/EpiGroup/Gideon_Data/Thesis_Data/Extracted_Ukb.csv")
+
+colnames(Extracted_Data)[1]<-"f.eid"
+
+dim(Extracted_Data)
+[1] 502493    415
+
+fwrite(Extracted_Data,"Extracted_Ukb.csv",sep=",")
+
+============================================================================================================
+ PC40<- Extracted_Data[,c(1,131:170)]
+
+
+ colnames(PC40)[2:41]<-c(paste0("PC",1:40))
+
+
+dim(PC40)
+[1] 502493     41
+
+ fwrite(PC40,"PC40.csv",sep=",")
+
+fwrite(PC40,"/scratch/EpiGroup/Gideon_Data/Thesis_Data/DATAFOLDER/PC40.csv",sep=",")
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ 
+ Data<-fread("/scratch/EpiGroup/Gideon_Data/Thesis_Data/UKB_60549_43063_43664_combined_phenotypes.csv")
+
+ dim(Data)
+[1] 502,219   7802
+
+ Data<-data.frame(Data)
+
+ Phen<-Data[,c("f.eid","f.21000.0.0")]
+
+dim(Phen)
+[1] 502,219       2
+
+dim(Data)
+[1] 502,219     415
+
+ Phen_Ancestry<-merge(Phen,Data,by="f.eid")
+
+dim(Phen_Ancestry)
+[1] 502493    416
+
+
+ fwrite(Phen_Ancestry,"Phen_Ancestry.csv",sep=",")
+
+
+ .............................................................................................................................
+
+ PC40<-fread("/scratch/EpiGroup/Gideon_Data/KMEANS/PC40.csv")
+ 
+  PC40<-na.omit(PC40)
+[1] 488251     41
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  Comp<-PC40[,-1]
+
+ colnames(Comp)[1:40]<-c(paste0("GPC",1:40))
+  
+  dim(Comp)
+
+[1] 488251     40
+
+fwrite(Comp,"Comp.csv",sep=",")
+=============================================================================================
+  ##### k-means clustering ###
+===============================================================================================
+
+## Perform k-means clustering with k = 7 clusters
+ 
+ Comp<-fread("Comp.csv")
+  
+  set.seed(1234)
+
+ km7 <- kmeans(Comp, centers = 7, nstart = 25,iter.max=1000)
+
+str(km7)
+
+final_data7 <- cbind(PC40, cluster = km7$cluster)
+
+dim(final_data7)
+[1] 488251     42
+
+head(final_data7)
+
+table(km7$cluster)
+
+fwrite(final_data7,"final_data7.csv",sep=",")
+============================================================================================
+
+Plot10<-fviz_cluster(km7, data = Comp,  
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+             )
+
+
+fviz_cluster(km7, data = Comp)
+
+If there are more than two dimensions (variables) fviz_cluster will perform principal component analysis (PCA) and
+ plot the data points according to the first two principal components that explain the majority of the variance.
+===================================================================================================================================
+Data<-fread("/scratch/EpiGroup/Gideon_Data/KMEANS/Extracted_Ukb.csv")
+ 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+ Phen_Ancestry<-fread("Phen_Ancestry.csv")
+
+dim(Data)
+[1] 502493    416
+
+ Data$SR.ethnicity<-Data$f.21000.0.0
+
+ Data$SR.ethnicity[Data$f.21000.0.0 %in% c("1","1001","1002","1003")]<-"white"
+
+ Data$SR.ethnicity[Data$f.21000.0.0 %in% c("2001","2","2002","2003","2004")]<-"mixed"
+ 
+  Data$SR.ethnicity[substring(Data$f.21000.0.0,1,1)==2]<-"mixed"
+
+ Data$SR.ethnicity[substring(Data$f.21000.0.0,1,1)==3]<-"Asian"
+
+ Data$SR.ethnicity[substring(Data$f.21000.0.0,1,1)==4]<-"African"
+
+ Data$SR.ethnicity[substring(Data$f.21000.0.0,1,1)==5]<-"Chinese"
+
+ Data$SR.ethnicity[substring(Data$f.21000.0.0,1,1)==6]<-"Other"
+
+  Data$SR.ethnicity[is.na(Data$f.21000.0.0)]<-"missing"
+
+ Datay$Data[Data$f.21000.0.0 <0]<-"missing"
+
+
+  table(Phen_Ancestry$SR.ethnicity)
+
+African   Asian Chinese missing   mixed   Other   white
+   8061    9882    1574    2777    2958    4558  472683
+
+ barplot(table(Data$SR.ethnicity))
+
+dim(Data)
+[1] 502493    417
+
+fwrite(Data,"Phen_Ancestry.csv",sep=",")
+
+================================================================================================================================
+#Merging the  Kmean cluster (Final_data7) with Data(Phen_Ancestry.csv) 
+
+dim(Data)
+[1] 502493    417
+
+dim(final_data7)
+[1] 488251     42
+
+
+ Phen_Ancestry_PC7<-merge(Phen_Ancestry,final_data7, by.x="f.eid",by.y="f.eid")
+
+ dim(Phen_Ancestry_PC7)
+
+[1] 488251    458
+
+ Tab_km7 <- table(Phen_Ancestry_PC7$cluster,Phen_Ancestry_PC7$SR.ethnicity)
+
+ 
+         
+ Tab_km7
+
+    African  Asian Chinese missing  mixed  Other  white
+  1    7409      2       0     224    433    849      5
+  2       3     16       1     865    277    204 264510
+  3       2    371    1484      71     49    642      9
+  4       0      2       1     159     37    127  44906
+  5     152    298       2     273   1248   1682   8068
+  6       1      7       0     431     97     77 142448
+  7      78   8778      16     285    702    775    175
+
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+
+ #####################################################################################################################################
+
+ Phen_Ancestry_PC7$Subset[Phen_Ancestry_PC7$cluster %in% c(2,4,5,6)]<-"White"
+
+ Phen_Ancestry_PC7$Subset[Phen_Ancestry_PC7$cluster ==7]<-"Asian"
+
+ Phen_Ancestry_PC7$Subset[Phen_Ancestry_PC7$cluster ==1]<-"African"
+
+ #Phen_Ancestry_PC7$Subset[Phen_Ancestry_PC7$cluster ==6]<-"Mixed"
+
+ Phen_Ancestry_PC7$Subset[Phen_Ancestry_PC7$cluster$cluster ==3]<-"Chinese"
+
+ Phen_Ancestry_PC7$Genetic_Ancestry[Phen_Ancestry_PC7$Subset=="White" & Phen_Ancestry_PC7$SR.ethnicity=="white"]<-"Caucassian"
+
+ Phen_Ancestry_PC7$Genetic_Ancestry[Phen_Ancestry_PC7$Subset =="African" & Phen_Ancestry_PC7$SR.ethnicity=="African"]<-"African"
+
+ Phen_Ancestry_PC7$Genetic_Ancestry[Phen_Ancestry_PC7$Subset=="Chinese" & Phen_Ancestry_PC7$SR.ethnicity=="Chinese"]<-"Chinese"
+
+ Phen_Ancestry_PC7$Genetic_Ancestry[Phen_Ancestry_PC7$Subset=="Asian" & Phen_Ancestry_PC7$SR.ethnicity=="Asian"]<-"Asian"
+
+ 
+
+ table(Phen_Ancestry_PC7$Subset)
+
+African   Asian   White
+   8922   10809  465892
+
+ =============================================================
+
+table(Phen_Ancestry_PC7$Genetic_Ancestry)
+
+ African      Asian Caucassian
+      7409       8778     459932
+
+ =====================================================================================
+
+table(Phen_Ancestry_PC7$Subset,Phen_Ancestry_PC7$Genetic_Ancestry)
+
+         African  Asian Caucassian
+  African    7409      0          0
+  Asian         0   8778          0
+  White         0      0     459932
+
+> 
+============================================================================================
+     dim( Phen_Ancestry_PC7) 
+
+[1] 488251    460
+
+fwrite(Phen_Ancestry_PC7,"Phen_Ancestry_PC7.csv",sep=",")
+
+White_Caucassian_PC7<-Phen_Ancestry_PC7 %>% filter(Genetic_Ancestry=="Caucassian")
+
+ dim(White_Caucassian_PC7)
+[1] 459932    460
+
+ fwrite(White_Caucassian_PC7,"White_Caucassian_PC7.csv",sep=",")
+
+##################################################################################################################################
+Step 2# Participants who that passed UKKB internal QC.
+
+To keep as many sample size as possible, I used UKB sample QC
+ (outliers identified for missing rate and heterozygosity variable) 
+to remove individuals with more than 5% missing rate and outliers
+
+Data<-fread("/scratch/EpiGroup/Gideon_Data/Thesis_Data/UKB_60549_43063_43664_combined_phenotypes.csv")
+
+dim(Data)
+
+
+UBBK_IQC<-Data%>% select("f.eid","f.22027.0.0")
+
+colnames(UBBK_IQC)[2]<-"ubbk_IQC"
+
+> head( UBBK_IQC)
+
+ dim( UBBK_IQC)
+[1] 502493      2
+
+
+ table(UBBK_IQC$ubbk_IQC, useNA="ifany")
+
+  1   <NA>
+   968 501525
+
+
+ fwrite(UBBK_IQC,"UBBK_IQC.csv",sep=",")
+
+
+  Intern.ID_QC<-UBBK_IQC %>% filter(is.na(ubbk_IQC))
+
+ dim(Intern.ID_QC)
+
+[1] 501525      2
+
+   # Participants that passed UBBK internal sample QC process.
+
+ fwrite(Intern.ID_QC,"Intern.ID_QC.csv",sep=",")
+ 
+........................................................................................................
+# Merge the the resulting Data with Bridged_Genetic Data
+  
+  Bridged_GeneticData <-fread("/scratch/EpiGroup/Gideon_Data/Bridged_GeneticData.csv")
+
+  dim(Bridged_GeneticData) # Participants with genetic Data
+
+  [1] 488,377      2
+
+Intern.ID_QC$f.eid<-as.character(Intern.ID_QC$f.eid)
+
+Bridged_GeneticData$PhenotypeID<-as.character(Bridged_GeneticData$PhenotypeID)
+
+Data<-merge(Intern.ID_QC, Bridged_GeneticData ,by.x="f.eid",by.y="PhenotypeID")
+
+dim(Data)
+
+[1] 487,279      3
+
+
+fwrite(Data,"Participant_QC_GeneData.csv",sep=",")
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+# Checking for Caucassian Participants who passed the UBBK internakl QC processes.
+
+Data<-fread("Participant_QC_GeneData.csv")
+
+Data$f.eid<-as.character(Data$f.eid)
+
+White_Caucassian_PC7<-fread("/scratch/EpiGroup/Gideon_Data/KMEANS/White_Caucassian_PC7.csv")
+
+dim(White_Caucassian_PC7)
+[1] 459,932    460
+
+White_Caucassian_PC7$f.eid<-as.character(White_Caucassian_PC7$f.eid)
+
+White_Caucassian<-merge(White_Caucassian_PC7, Data,by="f.eid")
+
+dim(White_Caucassian)
+
+[1] 459,042    462
+
+fwrite(White_Caucassian,"White_Caucassian.csv",sep=",") #white participant who passed UKB internalQC and has genetic data
+
+ ==========================================================================================
+#Excluding withdrawals
+
+
+NEW_WITHDRAWALS<- fread("/scratch/EpiGroup/Gideon_Data/KMEANS/NEW_WITHDRAWALS.csv")
+ dim(NEW_WITHDRAWALS)
+[1] 92  1
+
+White_Caucassian2<-White_Caucassian[!White_Caucassian$f.eid %in% NEW_WITHDRAWALS$f.eid, ]
+
+  dim(White_Caucassian2) 
+[1] 458,981    462
+
+fwrite(White_Caucassian2,"White_Caucassian2.csv", sep=",")  61 white causian removed
+=======================================================================================================================
+
+#Removing First and second degree relatives# 
+
+#default cutoff > 0.0884 - KING coefficient corresponding to 3rd degree relatedness)
+
+
+
+# library (ukbtools) # loads the ukb tools library - R/4.0.0
+install.packages("ukbtools") # use R.4.0.0
+library(dplyr)
+library(data.table)
+library("stringr")
+library(ukbtools)
+
+
+## Loads the UK relatedness data file for use in ukbtools
+
+Relatedness<- fread("/scratch/EpiGroup/Gideon_Data/ukb60549_rel_s488224.dat") 
+
+dim(Relatedness)
+
+[1] 107116      5
+
+White_Caucassian2<-fread("White_Caucassian2.csv")
+dim(White_Caucassian2)
+[1] 458981    462
+
+Related_to_remove<- ukb_gen_samples_to_remove(Relatedness, White_Caucassian2$f.eid, cutoff = 0.0884)
+......................................................................................................................................
+
+# step 1- creates the Related_to_remove values to vector (matrix) of integers 
+
+ 
+ related_vector <- matrix(data = Related_to_remove, ncol = 1, byrow = TRUE) 
+
+    colnames(related_vector)[1]<-"f.eid"
+
+   related_vector<-as.data.frame(related_vector)
+
+#  number of 1st and 2nd degree related individual removed.## [1] 33,369
+ 
+
+related_vector<-fread("/scratch/EpiGroup/Gideon_Data/KMEANS/Relatedness_RemovedList.csv")
+
+White_Caucassian2<-fread("White_Caucassian2.csv")
+
+dim(White_Caucassian2)
+[1] 458981    462
+
+White_Caucassian_3rd<- White_Caucassian2[!White_Caucassian2$f.eid %in% related_vector$f.eid, ]
+
+ dim(White_Caucassian_3rd)
+[1] 425612    462
+
+fwrite(White_Caucassian_3rd,"White_Caucassian_3rd.csv", sep=",")
+
+################################################################################################################################
+ 
+  White_Caucassian_3rd<-fread("White_Caucassian_3rd.csv")
+
+ dim(White_Caucassian_3rd)
+[1] 425612    462
+
+
+
+ ###  Excluding Pregnant and those who are not sure if pregnant(0= No, 1=Yes, 2= Unsure) or females that did not anwer the question (NA)
+ (..***278 PARTICPANTS REMOVED).
+
+White_Caucassian_3rd %>% count (Pregnant)
+
+  Pregnant      n
+1:        0 228947
+2:        1    113
+3:        2    165
+4:       NA 196387
+
+dim(Data<- White_Caucassian_3rd %>% filter(Pregnant %in% c(1,2)))
+[1] 278 462
+
+Data2<- White_Caucassian_3rd %>% filter(!Pregnant %in% c(1,2))
+
+dim(Data2)
+
+[1] 425,334    462
+
+
+Data2 %>% count (Pregnant)
+
+ Pregnant      n
+1:        0 228947
+2:       NA 196387
+
+
+Data2 %>% count(SEX)
+
+ SEX      n
+1:   0 229179
+2:   1 196155
+
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+  # Excluding Participants Sex mismatch 
+
+# Excluded 320 Participant with  Sex mismatch and  no Genetic Sex records #
+
+Data2 %>% count (Genetic_SEX)
+
+ Genetic_SEX      n
+1:           0 229249
+2:           1 196085
+
+
+
+dim(Data2 %>% filter(!is.na(Genetic_SEX))) 
+
+[1] 425,334    463
+
+table(Data2$SEX, Data2$Genetic_SEX)
+
+        0      1
+  0 229054    125
+  1    195 195960
+
+
+   
+dim(Data2 %>% filter((SEX!=Genetic_SEX)))
+
+[1] 320 463
+
+
+Data3<-Data2 %>% filter((SEX==Genetic_SEX)) 
+
+ dim(Data3)
+
+[1] 425014    463
+
+Data3 %>%count (Genetic_SEX)
+
+    Genetic_SEX      n
+1:           0 229054
+2:           1 195960
+
+
+ Data3 %>%count (SEX)
+ SEX      n
+1:   0 229054
+2:   1 195960
+
+   
+ table(Data3$SEX,Data3$Genetic_SEX)
+
+          0          1
+  0      229054      0
+  1      0        195960
+>
+
+
+fwrite(Data3 ,"White_Caucassian_third.csv",sep=',')
+
+ dim(Data3)
+
+[1] 425014    463
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+## Find Participant with  (1=Heart attack, 2=Angina, 3=Stroke, -3 = Prefer not to answers,  4=High blood pressure,-7=None of the above)
+Coding	Meaning
+1	Heart attack
+2	Angina
+3	Stroke
+4	High blood pressure
+-7	None of the above
+-3	Prefer not to answer
+Checking number Preexisting Heart Attack#
+Exclude - -3 = Prefer not to answers
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Data3<-fread("White_Caucassian_third.csv")
+
+dim(Data3)
+
+[1] 425,014    463
+
+Exclude - -3 = Prefer not to answers
+
+Data3<-Data3 %>% filter(VascHP_Doc_0 != "-3" | VascHP_Doc_1!="-3" | VascHP_Doc_2 != "-3" | VascHP_Doc_3 != "-3")
+
+dim(Data3)
+
+[1] 424,306    462
+
+
+# "Has a doctor ever told you that you have had any of the following conditions? 
+#(1=Heart attack, 2=Angina, 3=Stroke,   4=High blood pressure,-7=None of the above)# [Removed -3 = Prefer not to answers],
+
+ Data3 <- Data3 %>% 
+		mutate(Vascular_Heart_Prob =
+		ifelse(rowSums(
+               select(.,VascHP_Doc_0:VascHP_Doc_3) == "1", na.rm = TRUE) > 0,"Heart_Attack", 
+   		ifelse(rowSums(
+               select(.,VascHP_Doc_0:VascHP_Doc_3) == "2", na.rm = TRUE) > 0, "Angina",
+		ifelse(rowSums(
+               select(.,VascHP_Doc_0:VascHP_Doc_3) == "3", na.rm = TRUE) > 0, "Stroke",
+		ifelse(rowSums(
+               select(.,VascHP_Doc_0:VascHP_Doc_3) == "4", na.rm = TRUE) > 0, "High_Blood_Pressure","None")))),.before =3)
+
+ dim(Data3)
+
+
+[1] 424,306    463
+
+ Data3 %>% count(Vascular_Heart_Prob)
+ Vascular_Heart_Prob      n
+1:              Angina   9454
+2:        Heart_Attack   9855
+3: High_Blood_Pressure 101423
+4:                None 298251
+5:              Stroke   5323
+>
+
+
+Data4<-Data3 %>% filter(Vascular_Heart_Prob %in% c("High_Blood_Pressure","None"))
+
+dim(Data4)
+
+[1] 399,674    463
+
+Vascular/heart problems diagnosed by doctor
+ # 25,340 participants Vascular/heart problems diagnosed by doctor at baseline == # 425,014 - 399,674= 25,340
+########################################################################################################################################################################
+
+                 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX 
+                 
+                  XXXX START REMOVING PARTICCIPANTW WITH INCOMPLETE DATA IN VARIABLES OF INTEREST XXXX
+                 
+                 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Coding	Meaning
+1	Yes
+0	No
+-1	Do not know
+-3	Prefer not to answer
+
+##### starting point for excluding incompletes variables#  
+
+dim(Data4) Starting number 399,674
+.........................................................................................................
+#########################################################################################################################################################
+
+Exclude : -3 = Prefer not to answers
+
+ Data4 %>%count (Diabetes_Doc)
+ 
+   Diabetes_Doc      n
+1:           -3     55
+2:           -1    713
+3:            0 382400
+4:            1  16505
+5:           NA      1
+
+>
+
+
+
+Data4<-Data4 %>% filter(Diabetes_Doc %in% c("0","1","-1"))
+
+dim(Data4)
+[1] 399618    463
+
+
+
+ Data4 %>% count(Diabetes_Doc)
+
+  Diabetes_Doc      n
+1:           -1    713
+2:            0 382400
+3:            1  16505
+
+
+
+##################################################################################################################
+
+ Data4<- Data4 %>% 
+			mutate(Cholesterol_Medication =
+			ifelse(rowSums(
+        		select(.,FLip_Cho_Med_0:FLip_Cho_Med_3 | MLip_Cho_Med_0:MLip_Cho_Med_2 ) == "1", na.rm = TRUE) > 0,"Chol_Medication","None")) 
+
+ Data4<- Data4  %>% 
+	           mutate(BP_Medication =
+	           ifelse(rowSums(
+                   select(.,FLip_Cho_Med_0:FLip_Cho_Med_3 | MLip_Cho_Med_0:MLip_Cho_Med_2 ) == "2", na.rm = TRUE) > 0,"BP_Medication","None"))
+
+Data4<- Data4  %>% 
+	           mutate(Insulin_Medcation =
+	           ifelse(rowSums(
+                   select(.,FLip_Cho_Med_0:FLip_Cho_Med_3 | MLip_Cho_Med_0:MLip_Cho_Med_2 ) == "3", na.rm = TRUE) > 0,"Insulin_Medcation","None"))
+
+
+ dim(Data4)
+
+[1] 399618    466
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Calculation of Mean of BPs Readings
+
+
+  Data4$MeanSBP<-rowMeans(subset( Data4 , select = c('SBP_Manual_0','SBP_Manual_1','SBP_Auto_0','SBP_Auto_1')), na.rm=TRUE)
+
+  Data4$MeanDBP<-rowMeans(subset( Data4 , select = c('DBP_Manual_0','DBP_Manual_1','DBP_Auto_0','DBP_Auto_1')), na.rm=TRUE)
+
+dim(Data4)
+
+[1] 399618    468
+
+  Data4 <-Data4 %>% mutate(SYST_BP=ifelse(BP_Medication =="BP_Medication", MeanSBP + 15, MeanSBP))
+
+  Data5 <-Data4 %>% mutate(DIAST_BP = ifelse(BP_Medication== "BP_Medication", MeanDBP + 10, MeanDBP))
+
+ dim(Data5)
+[1] 399618    470
+
+ Data5<-Data5 %>% mutate(SYS_BP = (ifelse(is.na(SYST_BP), MeanSBP, SYST_BP)))
+
+ Data6<-Data5 %>% mutate(DIAS_BP = (ifelse(is.na(DIAST_BP ), MeanDBP, DIAST_BP )))
+
+dim(Data6)
+[1] 399618    472
+
+#################################################################################################################################
+##################################################################################################################################
+
+# Partiicipants with Incomplete records#### 
+
+# Participants with no BP readings ( No SYS_BP and No DIAS_BP Readings) 392 missing BP readings
+
+ dim(Data6 %>% filter(is.na(SYS_BP) | is.na(DIAS_BP)))
+
+[1] 377 472
+
+ #Data5<-Data5 %>% filter(!is.na(SYS_BP) & !is.na(DIAS_BP))
+
+ #dim(Data5)
+
+
+# Partiicipants with Incomplete  BMI records####  1123
+
+dim(Data6 %>% filter(is.na(BMI))) 
+
+[1] 1193  472
+
+# Partiicipants with complete BMI records####   
+
+Data6<-Data6 %>% filter(!is.na(BMI))  
+
+ dim(Data6)
+[1] 398425    472
+
+.............................................................................................
+
+# Partiicipants with Incomplete records####  
+
+dim(Data6 %>% filter(is.na(Cholesterol))) 
+ 
+[1] 18493   472
+
+# Partiicipants with complete Cholesterol records#### 407528 
+
+Data6<-Data6  %>% filter(!is.na(Cholesterol))  
+
+ dim(Data6)
+
+[1] 379932    472
+
+
+dim(Data6%>% filter(is.na(HDLc)))
+
+[1] 32302   472
+
+# Partiicipants with complete HDLc records####
+
+Data6<-Data6 %>% filter(!is.na(HDLc))  
+
+  dim(Data6) 
+
+[1] 347630    472
+
+
+
+........................................................................
+
+
+dim(Data6 %>% filter(is.na(LDLc)))
+
+[1] 563 472
+
+
+# Partiicipants with complete LDLc records####
+
+Data6<-Data6  %>% filter(!is.na(LDLc))  
+
+  dim(Data6) 
+
+[1] 347067    472
+
+ 
+#fwrite(Data6,"Data6.csv",sep=",")
+
+................................................................................................................
+...................................................................................................
+
+# Partiicipants with Incomplete Smoking records#### 1296
+
+ #dim(Data6 %>% filter(!Smoking_Status %in% c("0","1","2")))
+
+
+
+
+# Partiicipants with complete Smoking records#### 388370 
+
+Data6<-Data6  %>% filter(Smoking_Status %in% c("0","1","2"))
+
+ dim(Data6)
+[1] 345957    472
+
+
+table(Data6$Smoking_Status)
+
+   0      1      2
+189937 120414  35606
+
+............................................................................................
+
+
+
+...............................................................................................
+# Partiicipants with Incomplete Alcohol records#### 292
+
+ #dim(Data6 %>% filter(!Alc_Drinking_Status %in% c("0","1","2")))
+
+
+
+# Partiicipants with complete  Alcohol records####[1] 388099
+
+Data6<-Data6  %>% filter(Alc_Drinking_Status %in% c("0","1","2"))
+
+dim(Data6)
+
+[1] 345703    472
+
+table(Data6$Alc_Drinking_Status)
+  0      1      2
+ 10666  11293 323744
+
+
+..................................................................................................................................................
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+..................................................................................................................................................
+
+#Replaces the -10 (less than one spent on activity)  with 0.5 <- -10 half an hour
+
+
+Data6<-Data6  %>% mutate(TV_TIME=ifelse(TV_Time == "-10", 0.5, TV_Time))
+
+Data6<-Data6  %>% mutate(COMP_TIME=ifelse(Computer_Time == "-10", 0.5, Computer_Time))
+
+Data6<-Data6  %>% mutate(DRIVING_TIME=ifelse(Driving_Time == "-10", 0.5, Driving_Time))
+
+dim (Data6)
+[1] 337979    475
+
+.....................................................................................................................................
+
+ # creates a new colums called Sedentary behaviour which is the sum of those 3 criteria I used to describe sedentary lifestyle.
+ 
+Data6$Sedentary_Lifestyle<-(Data6$TV_TIME + Data6$COMP_TIME + Data6$DRIVING_TIME) 
+ 
+ dim(Data6)
+[1] 337979    476
+
+fwrite(Data6,"Compete_Dataset.csv",sep=",") 
+
+The complete data has 337,979   participants##
+
+337,713 (61,961) participantg removed for imcomplete data on 
+
+
+##########################################################################################################
+/####################################################################################################################################################
+ 
+ Data6 %>% count(Insulin_Medcation)
+
+#Diabetes defined as previously disgnosed by a doctor, on Insulin Medication Use, or
+ Fasting glucose equal or greater than 7.0mmol/l, HbA1c equal or greater than 48 mmol/mol 
+
+  Data6<-fread("Compete_Dataset.csv")
+ 
+   dim(Data6) 
+
+[1] 337979   476
+ 
+
+Data6<- Data6 %>%
+
+     mutate(Diabetes_Mellitus = case_when(Diabetes_Doc == "1" ~ "YES",
+                                       Glucose   >= 7  ~ "YES",
+	                     HbA1c  >= 48 ~"YES",
+	                    Insulin_Medcation =="Insulin_Medcation" ~"YES",
+	                    TRUE~"NO"),.before=2)
+
+ Data6 %>% count(Diabetes_Mellitus)
+
+ Diabetes_Mellitus      n
+1:                NO 318315
+2:               YES  19664
+
+#Diabetes at Basline 
+
+###################################################################################################################
+#find hypertensive partiticipants as people with SYS_BP>140 or DIAS_BP> 90, or on BP medication, Previously diagnosed hypertension, pazooki et. al
+DIAS_BP SYS_BP,
+.............................................................................................................................
+Data6 <- Data6%>%
+                     mutate(Hypertension = case_when(SYST_BP >
+ 140 ~ "YES",
+                                         DIAST_BP  > 90  ~ "YES",
+	                      BP_Medication=="BP_Medication" ~"YES",
+	                      Vascular_Heart_Prob=="High_Blood_Pressure"~ "YES",
+	                      TRUE~"NO"), .before=3)
+
+dim(Data6) 
+
+ [1] 337979    478
+
+
+   
+Data6 %>% count(Hypertension)
+  
+ Hypertension      n
+1:           NO 158738
+2:          YES 179241
+>
+
+
+
+fwrite(Data6,"Complete_Dataset2.csv",sep=",")  # 61,695(61,961) participantg removed for imcomplete data on 
+
+
+======================================================================================================
+
+Reason former drinker stopped drinking alcohol
+Coding	Meaning
+1	Illness or ill health
+2	Doctor's advice
+3	Health precaution
+4	Financial reasons
+5	Other reason
+-1	Do not know
+-3	Prefer not to answer
+
+#Why stopped smoking
+Coding	Meaning
+1	Illness or ill health
+2	Doctor's advice
+3	Health precaution
+4	Financial reasons
+-7	None of the above
+-1	Do not know
+-3	Prefer not to answer
+
+Data<-fread("/scratch/EpiGroup/Gideon_Data/UKB_60549_43063_43664_combined_phenotypes.csv")
+
+# REMOVEING INDIVIDUAL WHO STOPPED DRINKING AND SMOKING DUE TO HEALTH RERASONS#
+
+
+# MERGING INDIVIDUAL WHO STOPPED DRINKING AND SMOKING DUE TO HEALTH REASONS#
+ 
+#Removing incomplete BP
+
+Data6<-fread("Complete_Dataset2.csv")
+
+dim(Data6)
+[1] 337979    478
+
+complete_Dataset3<-subset(Complete_Dataset2, SYS_BP!=")
+ 
+dim(complete_Dataset3)
+
+[1] 337713 478
+
+complete_Dataset3<-subset(complete_Dataset3, DIAS_BP!=")
+ 
+dim(complete_Dataset3)
+
+[1] 337713 478
+============================================================================================================
+Data<-fread("/scratch/EpiGroup/Gideon_Data/UKB_60549_43063_43664_combined_phenotypes.csv")
+
+Data<-Data[,c("f.eid","f.3859.0.0","f.6157.0.0" ,"f.6157.0.1","f.6157.0.2","f.6157.0.3")]
+
+DATA<- merge(complete_Dataset3, Data, by ="f.eid")
+
+ dim(DATA)
+[1] 337,713    483
+
+
+ table(DATA$f.3859.0.0)
+
+  
+  -3   -1    1    2    3    4    5
+  28  324 2638  542 2213  198 4954
+
+
+DATA%>% count(f.3859.0.0)
+
+  DATA%>% count(f.3859.0.0)
+   f.3859.0.0      n
+1:         -3     28
+2:         -1    324
+3:          1   2638
+4:          2    542
+5:          3   2213
+6:          4    198
+7:          5   4954
+8:         NA 327082
+>
+
+
+
+
+> dim(DATA%>% filter(f.3859.0.0 %in%c("-3","1","2","3"))) stopped drinking due Health reasons
+
+ [1] 5421  483  #stopped drinking due Health reasons
+
+DATA<- DATA %>% filter(!f.3859.0.0 %in%c("-3","1","2","3"))
+
+dim(DATA) 
+
+[1] 332558    483
+
+
+#Data1<-DATA%>% filter(!f.6157.0.0 %in% c("-3","1","2","3") |!f.6157.0.1 %in% c("-3","1","2","3")| 
+                        !f.6157.0.2 %in% c("-3","1","2","3") | !f.6157.0.3 %in% c("-3","1","2","3"))
+
+DATA <- DATA %>% 
+		mutate(Smoking_Stop =
+		ifelse(rowSums(
+               select(.,481:484 ) == "1", na.rm = TRUE) > 0,"Illness", 
+   		ifelse(rowSums(
+               select(.,481:484 )  == "2", na.rm = TRUE) > 0, "Doctor's advice",
+		ifelse(rowSums(
+               select(.,481:484 )  == "3", na.rm = TRUE) > 0, "precaution",
+		ifelse(rowSums(
+               select(.,481:484 )  == "-3", na.rm = TRUE) > 0, "Prefer not","other")))),.before =3)
+
+
+dim(DATA)
+
+[1] 337,713    484
+
+> DATA %>% count(Smoking_Stop)
+
+       Smoking_Stop      n
+1: Doctor's advice   3100
+2:         Illness   7894
+3:           other 278961
+4:      precaution  47977
+5:      Prefer not     47
+
+
+DATA<-DATA%>% filter(Smoking_Stop=="other") # 337,713 - 278,961 =58,752
+
+dim(DATA)
+
+[1][1] 278961    484
+
+  337979-278961
+
+ ## (58,752) INDIVIDUAL WHO STOPPED DRINKING AND SMOKING DUE TO HEALTH REASONS
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ 
+#"Do you regularly take any of the following medications?#
+
+ # Removing people using Cholesterol medication
+
+ DATA %>% count(Cholesterol_Medication)
+
+ Cholesterol_Medication      n
+1:        Chol_Medication  34064
+2:                   None 244718
+
+
+DATA<-DATA %>% filter(Cholesterol_Medication=="None")
+
+ dim(DATA)
+[1] 244718    484
+
+#Removed Cholesterol Medication users ==#34, 064 
+
+fwrite(DATA,"DATA_No_Chol_Health_New.csv",sep=",")
+
+#############################################################################################################################################################
+#############################################################################################################################################################
+library(readr)
+> BASE_29_3_23 <- read_csv("BASE_29_3_23.csv")
+
+DATA<-BASE_29_3_23[,c(1:3,5,6,8,10,11,12,15,16,29,31:33)]
+
+dim(DATA)
+1] 244718     15
+
+DATA<-DATA %>% mutate(Sex=ifelse(SEX=="0","Female","Male"))
+
+DATA<-DATA %>% mutate(Alcohol=ifelse(Alc_Drinking_Status=="0","Never",ifelse(Alc_Drinking_Status=="1","Previous","Current")))
+
+DATA<-DATA %>% mutate(Smoking=ifelse( Smoking_Status=="0","Never",ifelse(Alc_Drinking_Status=="1","Previous","Current")))
+
+dim(DATA)
+
+[1] 244718     18
+
+
+DATA<-DATA %>% mutate(Non_HDL=(Cholesterol-HDLc))
+
+DATA<-DATA %>% mutate(TChol_HDL_Ratio=(Cholesterol/HDLc))
+
+dim(DATA)
+[1] 244718     20
+
+DATA<-DATA[,-c(4,7,8)]
+> View(DATA)
+
+dim(DATA)
+[1] 244718     17
+
+> fwrite(DATA,"BASE_DATA.csv",sep=",")
+
+
+The higher the number, the higher your risk of heart disease. 
+Some doctors now prefer using your non-HDL cholesterol level rather than your cholesterol ratio in determining heart disease risk.3
+
+
+However, it seems that both non-HDL cholesterol and cholesterol ratio appear to be better heart disease risk predictors than total cholesterol or LDL cholesterol levels alone.
+
+=================================================================
+
+GRS<-fread("THESIS_GRS_PROFILE.csv")
+> dim(GRS)
+[1] 487315      10
+
+DATA <- read_csv("BASE_DATA.csv")
+
+dim(DATA)
+[1] 244718     20
+Data<-merge(DATA,THESIS_GRS_PROFILE,by.x="f.eid",by.y="PhenotypeID")
+
+ dim(Data)
+
+[1] 244718      23
+
+
+fwrite(Data,"BRFMODELDATA.csv",sep=",")
+ 
+============================================================================================================================
+
+
+
+####################################################################################################################################################################
