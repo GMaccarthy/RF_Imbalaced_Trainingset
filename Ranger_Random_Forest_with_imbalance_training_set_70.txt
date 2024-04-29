@@ -1,0 +1,258 @@
+rm(list = ls())
+library(data.table)
+library(ROSE)
+library(randomForest)
+library(vip)       # variable importance
+#library(tidyverse)
+library(readr)
+#library(tidymodels)
+#library(textrecipes)
+#library(LiblineaR)
+#library(tidytext)
+library(caret) #R.4.3.0
+library(randomForest)
+library(vip)       # variable importance
+library(tidyverse)
+library(readr)
+library(ranger)
+==================================================================================
+
+train_data<-fread("scaled_train_data_70.csv")
+
+ colnames(train_data)[c(12:21)]<-c("T2DM_Genetic_Liability",
+                            "BMI_Genetic_Liability",
+ 			    "WHR_Genetic_Liability",
+ 			    "Smoking_Initiation_Genetic_Liability",
+ 			    "Smoking_Cessation_Genetic_Liability",
+ 			    "Smoking_Heaviness_Genetic_Liability",
+  			    "HDL_Genetic_Liability",
+                            "LDL_Genetic_Liability",
+                           "Total_Cholesterol_Genetic_Liability",
+ 			    "Triglycerides_Genetic_Liability")
+
+ colnames(train_data)[4]<-"Smoking_Status"
+ colnames(train_data)[5]<-"Alcohol_Status"
+ colnames(train_data)[8]<-"Total_Cholesterol"
+ colnames(train_data)[11]<-"Sedentary_Lifestyle"
+=================================================================================
+vip[(1:10),]
+vip<-vip(fit_70)
+ A tibble: 10 × 2
+   Variable                            Importance
+   <chr>                                    <dbl>
+ 1 Age                                   0.0291  
+ 2 BMI                                   0.0234  
+ 3 Total_Cholesterol                     0.0122  
+ 4 LDLc                                  0.00850 
+ 5 Sex                                   0.00530 
+ 6 HDLc                                  0.00238 
+ 7 Total_Cholesterol_Genetic_Liability   0.00144 
+ 8 LDL_Genetic_Liability                 0.00128 
+ 9 Sedentary_Lifestyle                   0.000621
+10 DM                                    0.000590
+---------------------------------------------------------------------------------------
+
+train_data<-train_data[,c(1,6,7,8,10,3,9,20,19,11,2)]
+
+train_data<-as.data.frame(unclass(train_data),stringsAsFactors = TRUE)
+========================================================================================================
+library(ranger)
+set.seed(500)
+
+RF_RF_70 <- ranger(HTN ~.,
+                   data = train_data, 
+                   importance = 'permutation',
+                   local.importance = TRUE,
+                   scale.permutation.importance = TRUE,
+                   probability=TRUE)
+print(RF_RF_70)
+
+> print(RF_RF_70 <- ranger(HTN ~.,
+                   data = train_data, 
+                   importance = 'permutation',
+                   local.importance = TRUE,
+                   scale.permutation.importance = TRUE,
+                   probability=TRUE)
+ print(RF_RF_70)
+Ranger result
+
+Call:
+ ranger(HTN ~ ., data = train_data, importance = "permutation",      local.importance = TRUE, scale.permutation.importance = TRUE,      probability = TRUE) 
+
+Type:                             Probability estimation 
+Number of trees:                  500 
+Sample size:                      171304 
+Number of independent variables:  10 
+Mtry:                             3 
+Target node size:                 10 
+Variable importance mode:         permutation 
+Splitrule:                        gini 
+OOB prediction error (Brier s.):  0.2176208 
+
+Ranger result
+------------------------------------------------------------------------------------
+vip[(1:10),]
+vip<-vip(RF_RF_70)
+ vip$data
+# A tibble: 10 × 2
+   Variable                            Importance
+   <chr>                                    <dbl>
+ 1 Age                                   0.0307  
+ 2 BMI                                   0.0249  
+ 3 Total_Cholesterol                     0.0195  
+ 4 LDLc                                  0.0143  
+ 5 Sex                                   0.00610 
+ 6 HDLc                                  0.00340 
+ 7 Total_Cholesterol_Genetic_Liability   0.00284 
+ 8 LDL_Genetic_Liability                 0.00256 
+ 9 Sedentary_Lifestyle                   0.000567
+10 DM                                    0.000558
+>===========================================================================
+
+- Test set predictions
+=========================================================================================
+#Classification in Testing set
+
+library(pROC)
+
+#test_data<-fread("scaled_test_data_70.csv")
+
+
+ colnames(test_data)[c(12:21)]<-c("T2DM_Genetic_Liability",
+                            "BMI_Genetic_Liability",
+ 			    "WHR_Genetic_Liability",
+ 			    "Smoking_Initiation_Genetic_Liability",
+ 			    "Smoking_Cessation_Genetic_Liability",
+ 			    "Smoking_Heaviness_Genetic_Liability",
+  			    "HDL_Genetic_Liability",
+                            "LDL_Genetic_Liability",
+                           "Total_Cholesterol_Genetic_Liability",
+ 			    "Triglycerides_Genetic_Liability")
+
+ colnames(test_data)[4]<-"Smoking_Status"
+ colnames(test_data)[5]<-"Alcohol_Status"
+ colnames(test_data)[8]<-"Total_Cholesterol"
+ colnames(test_data)[11]<-"Sedentary_Lifestyle"
+
+------------------------------------------------------------------------------
+
+test_data<-test_data[,c(1,6,7,8,10,3,9,20,19,11,2)]
+
+
+test_data<-as.data.frame(unclass(test_data),stringsAsFactors = TRUE)
+----------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+========================================================================================================================
+library(pROC)
+
+predict <- predict(RF_RF_70, test_data,type="response",reshape = TRUE)
+
+#predict$predictions[2] same as predict$predictions$YES# second column of prediction
+
+test_data$predict_probability <- predict$predictions[,2]
+
+test_data$predicted_class<- ifelse(test_data$predict_probability > 0.5,"YES","NO")
+
+test_data<-as.data.frame(unclass(test_data),stringsAsFactors = TRUE)
+
+mean(test_data$HTN == test_data$predicted_class)#Accuracy
+[1] 0.6525322
+======================================================================================================
+=======================================================================================================================
+
+auc(test_data$HTN,test_data$predict_probability)
+Setting levels: control = NO, case = YES
+Setting direction: controls < cases
+Area under the curve: 0.7073
+
+roc_score=roc(test_data$HTN,test_data$predict_probability,ci=TRUE)
+roc_score
+all:
+roc.default(response = test_data$HTN, predictor = test_data$predict_probability,     ci = TRUE)
+
+Data: test_data$predict_probability in 38286 controls (test_data$HTN NO) < 35128 cases (test_data$HTN YES).
+Area under the curve: 0.7073
+95% CI: 0.7036-0.711 (DeLong)
+
+------------------------------------------------------------------------------------------------------
+
+pROC_obj_roc <- roc(test_data$HTN,test_data$predict_probability,
+                smoothed = TRUE,
+                # arguments for ci
+                ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+                # arguments for plot
+                plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+                print.auc=TRUE, show.thres=TRUE)
+------------------------------------------------------------------------------------------------------
+======================================================================================================
+
+=====================================================================================================================
+
+library(rms)
+
+test_data<-test_data%>% mutate(HTN2=ifelse(HTN=="YES",1,0))
+
+val<-val.prob(test_data$predict_probability,test_data$HTN2,pl=TRUE,xlab="Predicted Probability",g=10, riskdist = "predicted")
+ val
+val
+          Dxy       C (ROC)            R2             D      D:Chi-sq           D:p             U 
+ 4.145225e-01  7.072612e-01  1.697918e-01  1.361099e-01  9.993374e+03            NA  5.732944e-04 
+     U:Chi-sq           U:p             Q         Brier     Intercept         Slope          Emax 
+ 4.408783e+01  2.669617e-10  1.355366e-01  2.172842e-01 -1.430688e-02  9.328002e-01  5.660802e-02 
+          E90          Eavg           S:z           S:p 
+ 2.039334e-02  7.226247e-03  5.956706e+00  2.573734e-09 
+------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+library(caret)
+
+#predicted_HTN<-ifelse(Pred_prob$YES>0.5,"YES","NO")
+
+
+test_data$predicted_class<- ifelse(test_data$predict_probability > 0.5,"YES","NO")
+
+predicted_HTN<-as.factor(test_data$predicted_class)
+
+Actual_HTN<-as.factor(test_data$HTN)
+
+cm <-confusionMatrix(predicted_HTN, Actual_HTN, positive="YES", mode="everything")
+
+cm
+cm
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    NO   YES
+       NO  25303 12526
+       YES 12983 22602
+                                         
+               Accuracy : 0.6525         
+                 95% CI : (0.6491, 0.656)
+    No Information Rate : 0.5215         
+    P-Value [Acc > NIR] : < 2.2e-16      
+                                         
+                  Kappa : 0.3041         
+                                         
+ Mcnemar's Test P-Value : 0.004303       
+                                         
+            Sensitivity : 0.6434         
+            Specificity : 0.6609         
+         Pos Pred Value : 0.6352         
+         Neg Pred Value : 0.6689         
+              Precision : 0.6352         
+                 Recall : 0.6434         
+                     F1 : 0.6393         
+             Prevalence : 0.4785         
+         Detection Rate : 0.3079         
+   Detection Prevalence : 0.4847         
+      Balanced Accuracy : 0.6522         
+                                         
+       'Positive' Class : YES    
+---------------------------------------------------------------------------------------
+cm$byClass
+cm$byClass
+         Sensitivity          Specificity       Pos Pred Value       Neg Pred Value 
+           0.6434184            0.6608943            0.6351553            0.6688784 
+           Precision               Recall                   F1           Prevalence 
+           0.6351553            0.6434184            0.6392601            0.4784918 
+      Detection Rate Detection Prevalence    Balanced Accuracy 
+           0.3078704            0.4847168            0.6521563 

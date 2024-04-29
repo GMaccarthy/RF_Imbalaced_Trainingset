@@ -1,0 +1,323 @@
+setwd("H:/Random_Forest_Reviewer_Request")# ToshibaHD(H:)
+rm(list = ls())
+library(data.table)
+library(ROSE)
+library(randomForest)
+library(vip)       # variable importance
+#library(tidyverse)
+library(readr)
+#library(tidymodels)
+#library(textrecipes)
+#library(LiblineaR)
+#library(tidytext)
+library(caret) #R.4.3.0
+library(randomForest)
+library(vip)       # variable importance
+library(tidyverse)
+library(readr)
+library(ranger) #R.4.2.2
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+===============================================================================================
+
+#Data<-fread("BRIEF_Model_Data.csv")
+
+#define function to scale values between 0 and 1
+
+#Categorical<-subset(Data, select= c("HTN","DM","Sex","Smoking","Alcohol"))
+
+#Categorical<-as.data.frame(Categorical)
+
+  dim(Categorical)
+[1] 244718      5
+
+ #Numerical<-Data[,-c(1,2,3,6,7)]
+
+ # Numerical<-as.data.frame(Numerical)
+ 
+ #dim(Numerical)
+[1] 244718     16
+
+# scale_values <- function(x){(x-min(x))/(max(x)-min(x))}
+
+ #Numerical_rescaled <- scale_values(Numerical)
+
+ Numerical_rescaled<-as.data.frame(Numerical_rescaled)
+
+
+
+ #RescaledNumPredictors<-cbind(Categorical,Numerical_rescaled)
+
+ dim(RescaledNumPredictors)
+
+[1] 244718     21
+
+fwrite(RescaledNumPredictors,"RescaledNumPredictors.csv",sep=",")
+
+#fwrite(RescaledNumPredictors,"BRFMODELDATA_22_04_24.csv",sep=",")
+
+===================================================================================================
+=============================================================================
+
+ #00% of the data for training - these are row indices
+
+set.seed(500)
+  Data<-fread("RescaledNumPredictors.csv")
+#OR
+  Data<-fread("BRFMODELDATA_22_04_24.csv")
+
+index <- createDataPartition(Data$HTN, p = 0.7, list = FALSE)
+
+
+# Subset the rows selected above
+
+train_data <- Data[index, ]
+table(train_data$HTN)
+  NO   YES 
+89337 81967 
+ 
+
+fwrite(train_data,"scaled_train_data_70.csv",sep=",")
+
+
+test_data <- Data[-index, ]
+
+
+ table(test_data$HTN)
+
+  NO   YES 
+38286 35128 
+
+
+fwrite(test_data,"scaled_test_data_70.csv",sep=",")
+==================================================================================
+
+train_data<-fread("scaled_train_data_70.csv")
+
+ colnames(train_data)[c(12:21)]<-c("T2DM_Genetic_Liability",
+                            "BMI_Genetic_Liability",
+ 			    "WHR_Genetic_Liability",
+ 			    "Smoking_Initiation_Genetic_Liability",
+ 			    "Smoking_Cessation_Genetic_Liability",
+ 			    "Smoking_Heaviness_Genetic_Liability",
+  			    "HDL_Genetic_Liability",
+                            "LDL_Genetic_Liability",
+                           "Total_Cholesterol_Genetic_Liability",
+ 			    "Triglycerides_Genetic_Liability")
+
+ colnames(train_data)[4]<-"Smoking_Status"
+ colnames(train_data)[5]<-"Alcohol_Status"
+ colnames(train_data)[8]<-"Total_Cholesterol"
+ colnames(train_data)[11]<-"Sedentary_Lifestyle"
+
+
+train_data<-as.data.frame(unclass(train_data),stringsAsFactors = TRUE)
+========================================================================================================
+library(ranger)
+set.seed(500)
+
+fit_70 <- ranger(HTN ~.,
+                   data = train_data, 
+                   importance = 'permutation',
+                   local.importance = TRUE,
+                   scale.permutation.importance = TRUE,
+                   probability=TRUE)
+print(fit_70)
+
+> print(fit_70)
+Ranger result
+
+Call:
+ ranger(HTN ~ ., data = train_data, importance = "permutation",      local.importance = TRUE, scale.permutation.importance = TRUE, probability = TRUE) 
+
+Type:                             Probability estimation 
+Number of trees:                  500 
+Sample size:                      171304 
+Number of independent variables:  20 
+Mtry:                             4 
+Target node size:                 10 
+Variable importance mode:         permutation 
+Splitrule:                        gini 
+OOB prediction error (Brier s.):  0.2156755  
+-----------------------------------------------------------------------------
+library(vip) 
+ 
+vip<-vi(fit_70)
+
+vip[(1:10),]
+vip<-vip(fit_70)
+ A tibble: 10 × 2
+   Variable                            Importance
+   <chr>                                    <dbl>
+ 1 Age                                   0.0291  
+ 2 BMI                                   0.0234  
+ 3 Total_Cholesterol                     0.0122  
+ 4 LDLc                                  0.00850 
+ 5 Sex                                   0.00530 
+ 6 HDLc                                  0.00238 
+ 7 Total_Cholesterol_Genetic_Liability   0.00144 
+ 8 LDL_Genetic_Liability                 0.00128 
+ 9 Sedentary_Lifestyle                   0.000621
+10 DM                                    0.000590
+----------------------------------------------------------------
+Predicting
+#get the prediction for the ranger model
+
+#Score Testing Set
+
+- Test set predictions
+=========================================================================================
+#Classification in Testing set
+
+library(pROC)
+
+#test_data<-fread("scaled_test_data_70.csv")
+
+
+ colnames(test_data)[c(12:21)]<-c("T2DM_Genetic_Liability",
+                            "BMI_Genetic_Liability",
+ 			    "WHR_Genetic_Liability",
+ 			    "Smoking_Initiation_Genetic_Liability",
+ 			    "Smoking_Cessation_Genetic_Liability",
+ 			    "Smoking_Heaviness_Genetic_Liability",
+  			    "HDL_Genetic_Liability",
+                            "LDL_Genetic_Liability",
+                           "Total_Cholesterol_Genetic_Liability",
+ 			    "Triglycerides_Genetic_Liability")
+
+ colnames(test_data)[4]<-"Smoking_Status"
+ colnames(test_data)[5]<-"Alcohol_Status"
+ colnames(test_data)[8]<-"Total_Cholesterol"
+ colnames(test_data)[11]<-"Sedentary_Lifestyle"
+
+
+test_data<-as.data.frame(unclass(test_data),stringsAsFactors = TRUE)
+----------------------------------------------------------------------------------------------------------------
+
+#prediction<-predict(fit_70, test_data,type="response",reshape = TRUE)
+
+#predictions_HTN <- ifelse(prediction > 0.5,1,0)
+-------------------------------------------------------------------------------------------------------
+library(pROC)
+
+test_data<-as.data.frame(unclass(test_data),stringsAsFactors = TRUE)
+
+ pred<-predict(fit_70, test_data)
+
+predictions<-pred$predictions
+
+ Pred_prob<-data.frame(predictions)
+
+fwrite(Pred_prob,"fit_70_predicted_prob.csv",sep=",")
+
+#Pfit<-Pred_fit_prob$YES
+------------------------------------------------------------------------------------------------------------------------
+========================================================================================================================
+library(pROC)
+
+predict <- predict(fit_70, test_data,type="response",reshape = TRUE)
+
+#predict$predictions[2] same as predict$predictions$YES# second column of prediction
+
+test_data$predict_probability <- predict$predictions[,2]
+
+test_data$predicted_class<- ifelse(test_data$predict_probability > 0.5,"YES","NO")
+
+test_data<-as.data.frame(unclass(test_data),stringsAsFactors = TRUE)
+
+mean(test_data$HTN == test_data$predicted_class)#Accuracy
+[1] 0.6571226
+======================================================================================================
+=======================================================================================================================
+
+auc(test_data$HTN,test_data$predict_probability)
+Setting levels: control = NO, case = YES
+Setting direction: controls < cases
+Area under the curve: 0.7135
+
+roc_score=roc(test_data$HTN,test_data$predict_probability,ci=TRUE)
+roc_score
+all:
+roc.default(response = test_data$HTN, predictor = test_data$predict_probability,     ci = TRUE)
+
+Data: test_data$predict_probability in 38286 controls (test_data$HTN NO) < 35128 cases (test_data$HTN YES).
+Area under the curve: 0.7135
+95% CI: 0.7098-0.7172 (DeLong)
+
+------------------------------------------------------------------------------------------------------
+
+pROC_obj_roc <- roc(test_data$HTN,test_data$predict_probability,
+                smoothed = TRUE,
+                # arguments for ci
+                ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+                # arguments for plot
+                plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+                print.auc=TRUE, show.thres=TRUE)
+------------------------------------------------------------------------------------------------------
+======================================================================================================
+
+=====================================================================================================================
+
+library(rms)
+
+test_data<-test_data%>% mutate(HTN2=ifelse(HTN=="YES",1,0))
+
+val<-val.prob(test_data$predict_probability,test_data$HTN2,pl=TRUE,xlab="Predicted Probability",g=10, riskdist = "predicted")
+
+
+------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+library(caret)
+
+#predicted_HTN<-ifelse(Pred_prob$YES>0.5,"YES","NO")
+
+
+test_data$predicted_class<- ifelse(test_data$predict_probability > 0.5,"YES","NO")
+
+predicted_HTN<-as.factor(test_data$predicted_class)
+
+Actual_HTN<-as.factor(test_data$HTN)
+
+cm <-confusionMatrix(predicted_HTN, Actual_HTN, positive="YES", mode="everything")
+
+cm
+
+ Confusion Matrix and Statistics
+
+          Reference
+Prediction    NO   YES
+       NO  25319 12205
+       YES 12967 22923
+                                          
+               Accuracy : 0.6571          
+                 95% CI : (0.6537, 0.6606)
+    No Information Rate : 0.5215          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.3136          
+                                          
+ Mcnemar's Test P-Value : 1.614e-06       
+                                          
+            Sensitivity : 0.6526          
+            Specificity : 0.6613          
+         Pos Pred Value : 0.6387          
+         Neg Pred Value : 0.6747          
+              Precision : 0.6387          
+                 Recall : 0.6526          
+                     F1 : 0.6456          
+             Prevalence : 0.4785          
+         Detection Rate : 0.3122          
+   Detection Prevalence : 0.4889          
+      Balanced Accuracy : 0.6569          
+                                          
+       'Positive' Class : YES             
+                                                                                  
+---------------------------------------------------------------------------------------------------
+cm$byClass
+m$byClass
+         Sensitivity          Specificity       Pos Pred Value       Neg Pred Value 
+           0.6525564            0.6613122            0.6387016            0.6747415 
+           Precision               Recall                   F1           Prevalence 
+           0.6387016            0.6525564            0.6455546            0.4784918 
+      Detection Rate Detection Prevalence    Balanced Accuracy 
+           0.3122429            0.4888713            0.6569343 
+=================================================================================================================
